@@ -1,50 +1,34 @@
-# [PROJECT_NAME] Constitution
+# AI Java E2E TAF Constitution
 <!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. API-First Design
+All test automation must target real API endpoints. Only the 'pet' category from Petstore is in scope. API contracts must be strictly followed and validated.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Modern Java Stack
+All code must use Java 21, Gradle 8, JUnit5, Retrofit, and AssertJ. Library versions are managed in gradle.properties. Gradle tasks use Groovy DSL.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Test-Driven Development (NON-NEGOTIABLE)
+All API calls must be covered by automated tests. TDD is mandatory: write tests first, then implement code to pass tests. Use AssertJ for assertions.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Integration & E2E Coverage
+End-to-end tests must validate API workflows for the 'pet' category. Integration tests are required for all Retrofit client logic.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Simplicity & Maintainability
+Code must be simple, readable, and maintainable. Avoid unnecessary complexity. All dependencies and versions must be documented in gradle.properties.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Real API Test Implementation
+All test automation MUST include actual, executable tests for API calls related to the 'pet' category. Stubs and placeholders are not sufficient; tests must validate real API behavior and contract compliance.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Technology Stack Requirements
+Java 21, Gradle 8, JUnit5, Retrofit, AssertJ. All dependencies must be declared in gradle.properties. Gradle tasks must use Groovy DSL. Only the 'pet' category API is in scope.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow & Quality Gates
+All code changes require review. Tests must pass before merging. API contract changes require explicit approval. TDD and integration coverage are mandatory.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution supersedes all other practices for this project. Amendments require documentation, approval, and migration plan. All PRs/reviews must verify compliance with principles and technology stack. Complexity must be justified. Use README.md for runtime development guidance.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.1.0 | **Ratified**: 2025-10-02 | **Last Amended**: 2025-10-02
+<!-- Version: 1.1.0 | Ratified: 2025-10-02 | Last Amended: 2025-10-02 -->

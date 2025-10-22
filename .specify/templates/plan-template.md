@@ -1,8 +1,8 @@
 
-# Implementation Plan: [FEATURE]
+# Implementation Plan: E2E TAF for Petstore 'pet' API
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Branch**: `e2e-petstore-taf` | **Date**: 2025-10-02 | **Spec**: [specs/e2e-petstore-taf/spec.md]
+**Input**: Feature specification from `/specs/e2e-petstore-taf/spec.md`
 
 ## Execution Flow (/plan command scope)
 ```
@@ -31,23 +31,28 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-[Extract from feature spec: primary requirement + technical approach from research]
+End-to-end Test Automation Framework for the Petstore API ('pet' category). Uses Java 21, Gradle 8, JUnit5, Retrofit, AssertJ. All dependencies managed in gradle.properties. Groovy DSL for Gradle tasks. Focus: API contract validation and workflow coverage for 'pet' endpoints.
 
 ## Technical Context
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Java 21  
+**Primary Dependencies**: Gradle 8, JUnit5, Retrofit, AssertJ  
+**API Base URL**: https://petstore.swagger.io/v2 (all tests must use this endpoint)
+**Storage**: N/A (API only)  
+**Testing**: JUnit5, AssertJ
+**Target Platform**: Any JVM-compatible (local/dev/CI)  
+**Project Type**: Single (test automation)  
+**Performance Goals**: Fast feedback (<5s per test suite)  
+**Constraints**: Only 'pet' category API endpoints, all versions in gradle.properties, Groovy DSL for Gradle tasks  
+**Scale/Scope**: All 'pet' endpoints, maintainable for future API changes
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- API-First: Only 'pet' endpoints tested, contracts validated
+- Modern Java Stack: Java 21, Gradle 8, JUnit5, Retrofit, AssertJ, Groovy DSL, versions in gradle.properties
+- TDD: All API calls covered by tests, written before implementation
+- Integration & E2E: End-to-end and integration tests for all workflows
+- Simplicity: Code must be readable, maintainable, and documented
 
 ## Project Structure
 

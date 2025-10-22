@@ -1,9 +1,9 @@
-# Feature Specification: [FEATURE NAME]
+# Feature Specification: E2E TAF for Petstore 'pet' API
 
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
+**Feature Branch**: `e2e-petstore-taf`  
+**Created**: 2025-10-02  
 **Status**: Draft  
-**Input**: User description: "$ARGUMENTS"
+**Input**: User description: "Create E2E TAF for testing API call for https://petstore.swagger.io/#/pet. Create API calls and tests just for category pet. Use Java 21, Gradle 8, JUnit5, Retrofit, AssertJ. For gradle tasks use groovy style. Version of libraries store in gradle.properties."
 
 ## Execution Flow (main)
 ```
@@ -55,9 +55,14 @@ When creating this spec from a user prompt:
 ## User Scenarios & Testing *(mandatory)*
 
 ### Primary User Story
-[Describe the main user journey in plain language]
+As a test engineer, I want to validate all API endpoints for the 'pet' category in Petstore, so that I can ensure correct contract and workflow behavior using Java 21, Gradle 8, JUnit5, Retrofit, and AssertJ.
 
 ### Acceptance Scenarios
+1. All 'pet' endpoints are covered by automated tests.
+2. API contract validation for request/response payloads.
+3. Tests fail if contract or workflow is broken.
+4. All dependencies managed in gradle.properties.
+5. Gradle tasks use Groovy DSL.
 1. **Given** [initial state], **When** [action], **Then** [expected outcome]
 2. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
@@ -73,6 +78,7 @@ When creating this spec from a user prompt:
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-006**: All API tests MUST use base URL 'https://petstore.swagger.io/v2' for Petstore 'pet' endpoints.
 
 *Example of marking unclear requirements:*
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]

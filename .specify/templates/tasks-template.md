@@ -1,6 +1,6 @@
-# Tasks: [FEATURE NAME]
+# Tasks: E2E TAF for Petstore 'pet' API
 
-**Input**: Design documents from `/specs/[###-feature-name]/`
+**Input**: Design documents from `/specs/e2e-petstore-taf/`
 **Prerequisites**: plan.md (required), research.md, data-model.md, contracts/
 
 ## Execution Flow (main)
@@ -43,21 +43,21 @@
 - Paths shown below assume single project - adjust based on plan.md structure
 
 ## Phase 3.1: Setup
-- [ ] T001 Create project structure per implementation plan
-- [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+- [ ] T001 Create project structure for Java 21 Gradle 8 TAF
+- [ ] T002 Initialize Gradle project, add JUnit5, Retrofit, AssertJ dependencies (versions in gradle.properties)
+- [ ] T003 [P] Configure Groovy DSL for Gradle tasks
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
-- [ ] T004 [P] Contract test POST /api/users in tests/contract/test_users_post.py
-- [ ] T005 [P] Contract test GET /api/users/{id} in tests/contract/test_users_get.py
-- [ ] T006 [P] Integration test user registration in tests/integration/test_registration.py
-- [ ] T007 [P] Integration test auth flow in tests/integration/test_auth.py
+- [ ] T004 [P] Contract test POST /pet in src/test/java/e2e/pet/PetPostContractTest.java
+- [ ] T005 [P] Contract test GET /pet/{petId} in src/test/java/e2e/pet/PetGetContractTest.java
+- [ ] T006 [P] Integration test pet creation workflow in src/test/java/e2e/pet/PetCreateIntegrationTest.java
+- [ ] T007 [P] Integration test pet update workflow in src/test/java/e2e/pet/PetUpdateIntegrationTest.java
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
-- [ ] T008 [P] User model in src/models/user.py
-- [ ] T009 [P] UserService CRUD in src/services/user_service.py
-- [ ] T010 [P] CLI --create-user in src/cli/user_commands.py
+- [ ] T008 [P] Pet model in src/main/java/e2e/pet/model/Pet.java
+- [ ] T009 [P] PetService CRUD in src/main/java/e2e/pet/service/PetService.java
+- [ ] T010 [P] Retrofit client for Petstore API in src/main/java/e2e/pet/client/PetApiClient.java
 - [ ] T011 POST /api/users endpoint
 - [ ] T012 GET /api/users/{id} endpoint
 - [ ] T013 Input validation

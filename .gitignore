@@ -1,0 +1,6 @@
+# Ignore OpenAPI/Swagger specs
+specs/
+*.yaml
+*.yml
+*.json
+.specify
