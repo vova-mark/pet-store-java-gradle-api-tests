@@ -1,0 +1,56 @@
+stages:
+  - build
+  - push
+
+variables:
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: ${DOCKER_REGISTRY}/${CI_PROJECT_PATH}
+  DOCKER_TAG: ${CI_COMMIT_SHORT_SHA}
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+
+default:
+  image: docker:20.10.16
+  services:
+    - name: docker:20.10.16-dind
+      command: ["--tls=false"]
+  tags:
+    - docker
+
+# Build job for all branches
+build:
+  stage: build
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+    - docker save $DOCKER_IMAGE_NAME:$DOCKER_TAG > image.tar
+  artifacts:
+    paths:
+      - image.tar
+
+# Push as 'latest' only on main
+push_latest:
+  stage: push
+  needs: [build]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  before_script:
+    - echo "Logging in to registry $DOCKER_REGISTRY..."
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $DOCKER_REGISTRY
+  script:
+    - docker load < image.tar
+    - docker tag $DOCKER_IMAGE_NAME:$DOCKER_TAG $DOCKER_IMAGE_NAME:latest
+    - docker push $DOCKER_IMAGE_NAME:latest
+
+# Push as '{sha}' on non-main branches
+push_branch_sha:
+  stage: push
+  needs: [build]
+  rules:
+    - if: '$CI_COMMIT_BRANCH != "main"'
+  before_script:
+    - echo "Logging in to registry $DOCKER_REGISTRY..."
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $DOCKER_REGISTRY
+  script:
+    - docker load < image.tar
+    - docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
