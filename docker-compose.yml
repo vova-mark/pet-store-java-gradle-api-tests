@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  petstore-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./test-results:/app/build/test-results
+    environment:
+      - GRADLE_OPTS=-Xmx512m
+      # You can set ARGS to pass options to Gradle test, e.g. "--info" or "--tests com.epam.ai.PetGetIntegrationTest"
+      - ARGS=
