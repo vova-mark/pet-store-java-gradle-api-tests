@@ -104,6 +104,7 @@ helm_e2e_run:
         echo "One or more required variables are missing. Exiting."
         exit 1
       fi
+    - export VERIFY_CHECKSUM=false
     - export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
     - export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
     - export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
