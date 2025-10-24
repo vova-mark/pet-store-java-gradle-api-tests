@@ -11,6 +11,9 @@ variables:
   DOCKER_TAG: ${CI_COMMIT_SHORT_SHA}
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
+  HELM_RELEASE: ${CI_PROJECT_PATH}-${CI_COMMIT_SHORT_SHA}
+  K8S_NAMESPACE: default
+  HELM_CHART_PATH: .kube/pet-store-tests
 
 default:
   image: docker:20.10.16
@@ -89,7 +92,7 @@ helm_e2e_run:
   before_script:
     - echo "Preparing environment and verifying required variables..."
     - |
-      REQUIRED_VARS="AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION EKS_CLUSTER_NAME K8S_NAMESPACE HELM_RELEASE HELM_CHART_PATH"
+      REQUIRED_VARS="AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION EKS_CLUSTER_NAME HELM_RELEASE HELM_CHART_PATH"
       MISSING=false
       for v in $REQUIRED_VARS; do
         if [ -z "${!v}" ]; then
@@ -136,10 +139,7 @@ helm_e2e_run:
     - echo "Running Helm upgrade --install for release '${HELM_RELEASE}' in namespace '${K8S_NAMESPACE}' using chart '${HELM_CHART_PATH}'..."
     - |
       IMAGE_TAG="${CI_COMMIT_SHORT_SHA}"
-      helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
-        --namespace "${K8S_NAMESPACE}" --create-namespace \
-        --set image.repository="${DOCKER_IMAGE_NAME}" \
-        --set image.tag="${IMAGE_TAG}"
+      helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" --namespace "${K8S_NAMESPACE}"
     - echo "Verifying rollout..."
     - |
       if [ -n "${HELM_WAIT_TIMEOUT:-}" ]; then
@@ -147,7 +147,7 @@ helm_e2e_run:
       else
         TIMEOUT="300s"
       fi
-      kubectl rollout status deployment/"${HELM_RELEASE}" -n "${K8S_NAMESPACE}" --timeout="${TIMEOUT}" || true
+      kubectl rollout status job/"${HELM_RELEASE}" -n "${K8S_NAMESPACE}" --timeout="${TIMEOUT}" || true
 
 # Push as 'latest' only on main
 push_latest:
