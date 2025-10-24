@@ -13,7 +13,7 @@ on:
 env:
   DOCKER_REGISTRY: registry.git.epam.com
   # GITHUB_REPOSITORY is equivalent to CI_PROJECT_PATH
-  DOCKER_IMAGE_NAME: registry.git.epam.com/${{ github.repository }}
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   # GITHUB_SHA is the full commit SHA; we use the first 8 chars for short SHA
   DOCKER_TAG: ${{ github.sha }}
   DOCKER_DRIVER: overlay2
