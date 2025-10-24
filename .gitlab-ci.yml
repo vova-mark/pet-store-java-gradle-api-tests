@@ -11,7 +11,7 @@ variables:
   DOCKER_TAG: ${CI_COMMIT_SHORT_SHA}
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
-  HELM_RELEASE: ${CI_PROJECT_PATH}-${CI_COMMIT_SHORT_SHA}
+  HELM_RELEASE: api-tests-${CI_COMMIT_SHORT_SHA}
   K8S_NAMESPACE: default
   HELM_CHART_PATH: .kube/pet-store-tests
 
