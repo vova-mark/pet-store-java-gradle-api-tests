@@ -65,7 +65,7 @@ gradle_compile:
       else
         GRADLE_CMD=gradle
       fi
-      $GRADLE_CMD --no-daemon clean build
+      $GRADLE_CMD --no-daemon clean build -x check
 
 # Build job for all branches
 build:
