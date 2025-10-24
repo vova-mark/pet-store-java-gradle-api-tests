@@ -13,7 +13,7 @@ variables:
   DOCKER_DRIVER: overlay2
   HELM_RELEASE: api-tests-${CI_COMMIT_SHORT_SHA}
   K8S_NAMESPACE: default
-  HELM_CHART_PATH: .kube/pet-store-tests
+  HELM_CHART_PATH: .kube/pet-store
 
 default:
   image: docker:20.10.16
