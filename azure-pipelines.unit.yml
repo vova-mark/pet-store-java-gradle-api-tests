@@ -1,0 +1,12 @@
+# Azure DevOps equivalent for Jenkinsfile.unit
+# Runs unit tests and publishes results
+
+trigger: none  # No trigger defined in original Jenkinsfile
+
+# Using the unit tests template
+extends:
+  template: templates/unit-tests-template.yml
+  parameters:
+    name: 'UnitTests'
+    displayName: 'Build & Unit Tests'
+    vmImage: 'ubuntu-latest'
