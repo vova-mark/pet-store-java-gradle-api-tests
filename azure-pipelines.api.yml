@@ -1,0 +1,12 @@
+# Azure DevOps equivalent for Jenkinsfile.api
+# Runs API isolated tests and publishes results
+
+trigger: none  # No trigger defined in original Jenkinsfile
+
+# Using the API tests template
+extends:
+  template: templates/api-tests-template.yml
+  parameters:
+    name: 'APITests'
+    displayName: 'Run API Isolated Tests'
+    vmImage: 'ubuntu-latest'
