@@ -31,11 +31,11 @@ jobs:
     steps:
       - name: Check branch name
         run: |
-          echo "Validating branch name '${{github.head_ref}}'..."
-          if [[ "${{github.head_ref}}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+          echo "Validating branch name '${{ github.ref_name }}'..."
+          if [[ "${{ github.ref_name }}" =~ ^[A-Za-z0-9_-]+$ ]]; then
             echo "Branch name is valid."
           else
-            echo "Invalid branch name: ${{github.head_ref}}. Must match regex: ^[A-Za-z0-9_-]+$"
+            echo "Invalid branch name: ${{ github.ref_name }}. Must match regex: ^[A-Za-z0-9_-]+$"
             exit 1
           fi
 
