@@ -1,0 +1,12 @@
+# Azure DevOps equivalent for Jenkinsfile.integration
+# Runs integration tests and publishes results
+
+trigger: none  # No trigger defined in original Jenkinsfile
+
+# Using the integration tests template
+extends:
+  template: templates/integration-tests-template.yml
+  parameters:
+    name: 'IntegrationTests'
+    displayName: 'Run Integration Tests'
+    vmImage: 'ubuntu-latest'
