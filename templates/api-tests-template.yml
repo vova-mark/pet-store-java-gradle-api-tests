@@ -1,0 +1,26 @@
+# Template for API isolated tests pipeline
+parameters:
+  name: 'APITests'
+  displayName: 'Run API Isolated Tests'
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: ${{ parameters.name }}
+  displayName: ${{ parameters.displayName }}
+  pool:
+    vmImage: ${{ parameters.vmImage }}
+  steps:
+  - task: Bash@3
+    displayName: 'Run API Isolated Tests'
+    inputs:
+      targetType: 'inline'
+      script: './gradlew apiIsolatedTests'
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/build/test-results/apiIsolatedTests/*.xml'
+      mergeTestResults: true
+      testRunTitle: 'API Isolated Tests'
+    condition: always()
