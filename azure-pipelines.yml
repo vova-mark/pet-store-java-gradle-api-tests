@@ -1,0 +1,32 @@
+# Azure DevOps equivalent for Jenkinsfile.aggregate
+# Orchestrates the execution of all test pipelines using templates
+
+trigger:
+  - main  # Default trigger on main branch
+
+stages:
+- stage: UnitTests
+  displayName: 'Build & Unit Tests'
+  jobs:
+  - template: templates/unit-tests-template.yml
+    parameters:
+      name: 'UnitTests'
+      displayName: 'Build & Unit Tests'
+
+- stage: IntegrationTests
+  displayName: 'Integration Tests'
+  dependsOn: UnitTests
+  jobs:
+  - template: templates/integration-tests-template.yml
+    parameters:
+      name: 'IntegrationTests'
+      displayName: 'Run Integration Tests'
+
+- stage: APITests
+  displayName: 'API Isolated Tests'
+  dependsOn: IntegrationTests
+  jobs:
+  - template: templates/api-tests-template.yml
+    parameters:
+      name: 'APITests'
+      displayName: 'Run API Isolated Tests'
