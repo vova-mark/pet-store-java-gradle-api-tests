@@ -14,7 +14,7 @@ on:
 
 env:
   DOCKER_REGISTRY: registry.git.epam.com
-  DOCKER_IMAGE_NAME: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   DOCKER_TAG: ${{ github.sha }}
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
@@ -31,11 +31,11 @@ jobs:
     steps:
       - name: Check branch name
         run: |
-          echo "Validating branch name '${GITHUB_REF##*/}'..."
-          if [[ "${GITHUB_REF##*/}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+          echo "Validating branch name '${{GITHUB_REF##*/}}'..."
+          if [[ "${{GITHUB_REF##*/}}" =~ ^[A-Za-z0-9_-]+$ ]]; then
             echo "Branch name is valid."
           else
-            echo "Invalid branch name: ${GITHUB_REF##*/}. Must match regex: ^[A-Za-z0-9_-]+$"
+            echo "Invalid branch name: ${{GITHUB_REF##*/}}. Must match regex: ^[A-Za-z0-9_-]+$"
             exit 1
           fi
 
