@@ -1,0 +1,26 @@
+# Template for integration tests pipeline
+parameters:
+  name: 'IntegrationTests'
+  displayName: 'Run Integration Tests'
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: ${{ parameters.name }}
+  displayName: ${{ parameters.displayName }}
+  pool:
+    vmImage: ${{ parameters.vmImage }}
+  steps:
+  - task: Bash@3
+    displayName: 'Run Integration Tests'
+    inputs:
+      targetType: 'inline'
+      script: './gradlew integrationTests'
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/build/test-results/integrationTests/*.xml'
+      mergeTestResults: true
+      testRunTitle: 'Integration Tests'
+    condition: always()
