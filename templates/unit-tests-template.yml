@@ -1,0 +1,26 @@
+# Template for unit tests pipeline
+parameters:
+  name: 'UnitTests'
+  displayName: 'Build & Unit Tests'
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: ${{ parameters.name }}
+  displayName: ${{ parameters.displayName }}
+  pool:
+    vmImage: ${{ parameters.vmImage }}
+  steps:
+  - task: Bash@3
+    displayName: 'Run Gradle build'
+    inputs:
+      targetType: 'inline'
+      script: './gradlew clean build'
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/build/test-results/test/*.xml'
+      mergeTestResults: true
+      testRunTitle: 'Unit Tests'
+    condition: always()
