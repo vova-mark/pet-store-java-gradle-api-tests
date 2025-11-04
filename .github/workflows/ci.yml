@@ -9,6 +9,7 @@ on:
     branches:
       - '**'
   pull_request:
+    types: [opened, synchronize]
     branches:
       - '**'
 
@@ -96,7 +97,7 @@ jobs:
     # GitHub Actions does not support "manual" jobs natively.
     # To run this job manually, use workflow_dispatch or a separate workflow.
     # The job will run only on push events (as in GitLab).
-    if: github.event_name == 'push'
+    # if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - name: Download Docker image artifact
