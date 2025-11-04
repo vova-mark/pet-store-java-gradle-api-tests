@@ -99,7 +99,7 @@ jobs:
   helm_e2e_run:
     name: Helm E2E Run
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, push_branch_sha]
     if: github.event_name == 'push'
     # GitLab's 'when: manual' is mapped to 'workflow_dispatch' or can be triggered by custom inputs.
     steps:
