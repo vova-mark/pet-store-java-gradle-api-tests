@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_NAME }}
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
   CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
   HELM_RELEASE: ${{ secrets.HELM_RELEASE }}
