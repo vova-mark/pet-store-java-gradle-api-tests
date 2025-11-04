@@ -1,0 +1,180 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_NAME }}
+  DOCKER_TAG: ${{ github.sha }}
+  HELM_RELEASE: ${{ secrets.HELM_RELEASE }}
+  K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+  HELM_CHART_PATH: ${{ secrets.HELM_CHART_PATH }}
+
+jobs:
+  branch_name_check:
+    name: Branch Name Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Validate branch name
+        run: |
+          # GitHub Actions: github.ref_name is the branch name
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "Invalid branch name: ${GITHUB_REF_NAME}. Must match regex: ^[A-Za-z0-9_-]+$"
+            exit 1
+          fi
+
+  gradle_compile:
+    name: Gradle Compile
+    runs-on: ubuntu-latest
+    needs: branch_name_check
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Gradle Build
+        run: |
+          echo "Compiling project with Gradle..."
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            GRADLE_CMD=./gradlew
+          else
+            GRADLE_CMD=gradle
+          fi
+          $GRADLE_CMD --no-daemon clean build -x check
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: gradle_compile
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.CI_REGISTRY_USER }}
+          password: ${{ secrets.CI_REGISTRY_PASSWORD }}
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} .
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} -o image.tar
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tar
+          path: image.tar
+
+  helm_e2e_run:
+    name: Helm E2E Run
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_DEFAULT_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+      - name: Helm upgrade/install
+        run: |
+          helm upgrade --install ${{ env.HELM_RELEASE }} ${{ env.HELM_CHART_PATH }} \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --set image.repository=${{ env.DOCKER_IMAGE_NAME }} \
+            --set image.tag=${{ env.DOCKER_TAG }} \
+            --wait --timeout ${{ secrets.HELM_WAIT_TIMEOUT }}
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status job/${{ env.HELM_RELEASE }} -n ${{ env.K8S_NAMESPACE }} --timeout=${{ secrets.HELM_WAIT_TIMEOUT }}
+
+  push_latest:
+    name: Push Docker Image (main branch)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref_name == 'main'
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.CI_REGISTRY_USER }}
+          password: ${{ secrets.CI_REGISTRY_PASSWORD }}
+      - name: Load Docker image
+        run: docker load -i image.tar
+      - name: Tag image as latest
+        run: docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
+      - name: Push image as latest
+        run: docker push ${{ env.DOCKER_IMAGE_NAME }}:latest
+
+  push_branch_sha:
+    name: Push Docker Image (branch SHA)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref_name != 'main'
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.CI_REGISTRY_USER }}
+          password: ${{ secrets.CI_REGISTRY_PASSWORD }}
+      - name: Load Docker image
+        run: docker load -i image.tar
+      - name: Push image with branch SHA tag
+        run: docker push ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+
+# Notes:
+# - Ensure the following secrets exist: DOCKER_REGISTRY, DOCKER_IMAGE_NAME, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD,
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, EKS_CLUSTER_NAME, HELM_RELEASE, K8S_NAMESPACE, HELM_CHART_PATH, HELM_WAIT_TIMEOUT.
+# - GitHub Actions does not support manual job approvals by default; consider workflow_dispatch for manual triggers.
