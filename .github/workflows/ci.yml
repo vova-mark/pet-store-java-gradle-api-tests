@@ -1,0 +1,215 @@
+# .github/workflows/ci.yml
+# GitHub Actions equivalent of the provided GitLab CI pipeline.
+# All stages, jobs, variables, and logic are preserved as closely as possible.
+# See comments for platform-specific adaptations and limitations.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch: # Allows manual trigger for jobs (see helm_e2e_run adaptation)
+
+env:
+  # Global variables (GitHub does not support variable interpolation in env directly)
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+  DOCKER_TAG: ${{ github.sha }}
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  HELM_RELEASE: api-tests-${{ github.sha }}
+  K8S_NAMESPACE: default
+  HELM_CHART_PATH: .kube/pet-store
+
+jobs:
+
+  branch_name_check:
+    name: Validate branch name
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+    steps:
+      - name: Validate branch name
+        shell: bash
+        run: |
+          BRANCH_NAME="${GITHUB_REF##*/}"
+          echo "Validating branch name '${BRANCH_NAME}'..."
+          if [[ "${BRANCH_NAME}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "Branch name is valid."
+          else
+            echo "Invalid branch name: ${BRANCH_NAME}. Must match regex: ^[A-Za-z0-9_-]+$"
+            exit 1
+          fi
+
+  gradle_compile:
+    name: Compile with Gradle
+    runs-on: ubuntu-latest
+    needs: branch_name_check
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            .gradle/wrapper
+            .gradle/caches
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Gradle version
+        run: gradle --version
+      - name: Compile project
+        run: |
+          echo "Compiling project with Gradle..."
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            GRADLE_CMD=./gradlew
+          else
+            GRADLE_CMD=gradle
+          fi
+          $GRADLE_CMD --no-daemon clean build -x check
+
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: gradle_compile
+    env:
+      DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+      DOCKER_IMAGE_NAME: ${{ env.DOCKER_IMAGE_NAME }}
+      DOCKER_TAG: ${{ env.DOCKER_TAG }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+      - name: Save Docker image as artifact
+        run: |
+          docker save $DOCKER_IMAGE_NAME:$DOCKER_TAG > image.tar
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tar
+          path: image.tar
+
+  helm_e2e_run:
+    name: Cloud test with Helm on EKS
+    runs-on: ubuntu-latest
+    needs: build
+    # GitHub Actions does not support per-job manual triggers.
+    # This job can be triggered manually via workflow_dispatch, or you can use environment protection for approval.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      HELM_RELEASE: ${{ env.HELM_RELEASE }}
+      HELM_CHART_PATH: ${{ env.HELM_CHART_PATH }}
+      K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install AWS CLI
+        uses: aws-actions/configure-aws-cli@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_DEFAULT_REGION}"
+      - name: Kubernetes context
+        run: |
+          kubectl config current-context
+          kubectl get ns || true
+      - name: Helm upgrade/install
+        run: |
+          echo "Running Helm upgrade --install for release '${HELM_RELEASE}' in namespace '${K8S_NAMESPACE}' using chart '${HELM_CHART_PATH}'..."
+          helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" --namespace "${K8S_NAMESPACE}"
+      - name: Verify rollout
+        run: |
+          TIMEOUT="${HELM_WAIT_TIMEOUT:-300s}"
+          kubectl rollout status job/"${HELM_RELEASE}" -n "${K8S_NAMESPACE}" --timeout="${TIMEOUT}" || true
+
+  push_latest:
+    name: Push Docker image as 'latest' (main branch only)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    env:
+      DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+      DOCKER_IMAGE_NAME: ${{ env.DOCKER_IMAGE_NAME }}
+      DOCKER_TAG: ${{ env.DOCKER_TAG }}
+      CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
+      CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: image-tar
+      - name: Docker login
+        run: docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $DOCKER_REGISTRY
+      - name: Load Docker image
+        run: docker load < image.tar
+      - name: Tag as latest
+        run: docker tag $DOCKER_IMAGE_NAME:$DOCKER_TAG $DOCKER_IMAGE_NAME:latest
+      - name: Push latest
+        run: docker push $DOCKER_IMAGE_NAME:latest
+
+  push_branch_sha:
+    name: Push Docker image as '{sha}' (non-main branches)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref != 'refs/heads/main'
+    env:
+      DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+      DOCKER_IMAGE_NAME: ${{ env.DOCKER_IMAGE_NAME }}
+      DOCKER_TAG: ${{ env.DOCKER_TAG }}
+      CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
+      CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: image-tar
+      - name: Docker login
+        run: docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $DOCKER_REGISTRY
+      - name: Load Docker image
+        run: docker load < image.tar
+      - name: Push image
+        run: docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
+
+# Platform-specific notes:
+# - Docker-in-Docker: GitHub Actions does not natively support DinD; jobs use the host Docker daemon.
+# - Manual job (helm_e2e_run): GitHub does not support per-job manual triggers; use workflow_dispatch or environment protection.
+# - Variable interpolation: GitHub Actions uses ${{ ... }} syntax, not Bash-style ${...}.
+# - Secrets: You must define CI_REGISTRY_USER, CI_REGISTRY_PASSWORD, AWS credentials, and EKS_CLUSTER_NAME in GitHub repository secrets.
+# - Artifacts: Uses actions/upload-artifact and actions/download-artifact for image.tar.
+# - Needs: Job dependencies are mapped using 'needs'.
+# - Rules: Mapped using 'if' conditions in jobs.
+# - Tags: GitHub Actions does not use runner tags; all jobs use ubuntu-latest.
+
+# Limitations:
+# - If you need true Docker-in-Docker, consider using a self-hosted runner.
+# - Per-job manual approval is not supported; use workflow_dispatch or environment protection.
+# - Some shell logic (e.g., installing tools) is replaced with official setup actions for reliability.
+
+# For production, ensure all required secrets are set in your repository.
