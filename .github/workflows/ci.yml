@@ -12,8 +12,8 @@ on:
 
 env:
   # GitLab variable equivalents. Set these as GitHub repository or environment secrets as needed.
-  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_NAME }}
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   DOCKER_TAG: ${{ github.sha }}
   DOCKER_DRIVER: overlay2
   HELM_RELEASE: api-tests-${{ github.sha }}
