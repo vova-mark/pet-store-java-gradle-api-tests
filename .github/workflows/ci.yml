@@ -44,7 +44,7 @@ jobs:
   gradle_compile:
     name: Gradle Compile
     runs-on: ubuntu-latest
-    needs: branch_name_check
+    # needs: branch_name_check
     steps:
       - uses: actions/checkout@v3
       - name: Cache Gradle packages
@@ -81,7 +81,7 @@ jobs:
           docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} .
           docker save ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} -o image.tar
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: image-tar
           path: image.tar
@@ -94,7 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Download Docker image artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: image-tar
       - name: Install kubectl
@@ -126,7 +126,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Download Docker image artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: image-tar
       - name: Log in to Docker registry
@@ -146,7 +146,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Download Docker image artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: image-tar
       - name: Log in to Docker registry
