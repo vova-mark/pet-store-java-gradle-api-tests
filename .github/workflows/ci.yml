@@ -10,7 +10,7 @@ on:
 
 env:
   DOCKER_REGISTRY: registry.git.epam.com
-  DOCKER_IMAGE_NAME: ${ env.DOCKER_REGISTRY }/${{ github.repository }}
+  DOCKER_IMAGE_NAME: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
   DOCKER_TAG: ${{ github.sha }}
 
 jobs:
