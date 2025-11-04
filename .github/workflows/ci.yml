@@ -14,7 +14,7 @@ on:
 
 env:
   DOCKER_REGISTRY: registry.git.epam.com
-  DOCKER_IMAGE_NAME: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   DOCKER_TAG: ${{ github.sha }}
   HELM_RELEASE: api-tests-${{ github.sha }}
   K8S_NAMESPACE: default
