@@ -101,9 +101,9 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
-      HELM_RELEASE: ${{ env.HELM_RELEASE }}
-      HELM_CHART_PATH: ${{ env.HELM_CHART_PATH }}
-      K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
+      HELM_RELEASE: ${{ HELM_RELEASE }}
+      HELM_CHART_PATH: ${{ HELM_CHART_PATH }}
+      K8S_NAMESPACE: ${{ K8S_NAMESPACE }}
       HELM_WAIT_TIMEOUT: ${{ secrets.HELM_WAIT_TIMEOUT }}
     steps:
       - uses: actions/checkout@v4
