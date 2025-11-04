@@ -1,0 +1,168 @@
+# .github/workflows/ci.yml
+# Converted from GitLab CI (.gitlab-ci.yml) to GitHub Actions
+# Key differences and notes:
+# - GitHub Actions does not support "stages" natively; jobs run in parallel unless dependencies are specified.
+# - "manual" jobs are mapped to "workflow_dispatch" triggers or require user approval via environments.
+# - Docker-in-Docker (dind) is handled via service containers.
+# - GitHub Actions uses secrets for sensitive variables.
+# - Artifacts are uploaded/downloaded using actions/upload-artifact and actions/download-artifact.
+# - Some GitLab CI variables (e.g., CI_PROJECT_PATH) are mapped to GitHub equivalents or set via env.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch: # Allows manual trigger for jobs that were "manual" in GitLab
+
+env:
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
+  CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
+  CI_PROJECT_PATH: ${{ github.repository }}
+  CI_COMMIT_SHORT_SHA: ${{ github.sha }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+jobs:
+
+  branch_name_check:
+    name: Branch Name Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          if [[ ! "$BRANCH" =~ ^(main|release\/.+|feature\/.+|bugfix\/.+|hotfix\/.+)$ ]]; then
+            echo "Invalid branch name: $BRANCH"
+            exit 1
+          fi
+
+  gradle_compile:
+    name: Gradle Compile
+    runs-on: ubuntu-latest
+    needs: branch_name_check
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Compile with Gradle
+        run: |
+          if [ -f ./gradlew ]; then
+            ./gradlew build
+          else
+            gradle build
+          fi
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: gradle_compile
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Log in to Docker registry
+        run: echo "${{ env.CI_REGISTRY_PASSWORD }}" | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ env.CI_REGISTRY_USER }} --password-stdin
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} .
+          docker save ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} -o image.tar
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tar
+          path: image.tar
+
+  helm_e2e_run:
+    name: Helm E2E Run (Manual)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' # Manual trigger only
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: image-tar
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: AWS CLI Setup
+        run: |
+          pip install awscli
+      - name: Run E2E tests on EKS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          # Add your E2E test commands here
+          echo "Running Helm E2E tests on EKS cluster"
+          # Example: helm install, kubectl apply, etc.
+
+  push_latest:
+    name: Push Latest Tag (main branch only)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: image-tar
+      - name: Log in to Docker registry
+        run: echo "${{ env.CI_REGISTRY_PASSWORD }}" | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ env.CI_REGISTRY_USER }} --password-stdin
+      - name: Load Docker image
+        run: docker load -i image.tar
+      - name: Tag and push latest
+        run: |
+          docker tag ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:latest
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:latest
+
+  push_branch_sha:
+    name: Push Branch SHA Tag (non-main branches)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: image-tar
+      - name: Log in to Docker registry
+        run: echo "${{ env.CI_REGISTRY_PASSWORD }}" | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ env.CI_REGISTRY_USER }} --password-stdin
+      - name: Load Docker image
+        run: docker load -i image.tar
+      - name: Tag and push branch SHA
+        run: |
+          docker tag ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }} ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }}
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.CI_PROJECT_PATH }}:${{ env.CI_COMMIT_SHORT_SHA }}
+
+# Platform-specific notes:
+# - GitHub Actions does not support "stages"; jobs are sequenced via "needs".
+# - "manual" jobs are mapped to workflow_dispatch (manual trigger).
+# - Secrets must be set in GitHub repository settings.
+# - Artifacts are handled via upload/download actions.
+# - Docker-in-Docker is supported via service containers.
+# - Some GitLab CI variables are mapped to GitHub equivalents or set via env.
+# - Please review and adjust E2E test commands in helm_e2e_run as needed.
