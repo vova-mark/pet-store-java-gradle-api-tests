@@ -1,0 +1,189 @@
+# .github/workflows/ci.yml
+# GitHub Actions equivalent of the provided GitLab CI pipeline
+# Platform-specific notes and limitations are included as comments.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
+  DOCKER_TAG: ${{ github.sha }}
+  # DOCKER_HOST: tcp://localhost:2375
+  # DOCKER_DRIVER: overlay2
+  HELM_RELEASE: api-tests-${{ github.sha }}
+  K8S_NAMESPACE: default
+  HELM_CHART_PATH: .kube/pet-store
+
+jobs:
+  branch_name_check:
+    name: Validate branch name
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+    steps:
+      - name: Validate branch name
+        run: |
+          echo "Validating branch name '${GITHUB_REF##*/}'..."
+          if [[ "${GITHUB_REF##*/}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "Branch name is valid."
+          else
+            echo "Invalid branch name: ${GITHUB_REF##*/}. Must match regex: ^[A-Za-z0-9_-]+$"
+            exit 1
+          fi
+
+  gradle_compile:
+    name: Compile with Gradle
+    runs-on: ubuntu-latest
+    needs: branch_name_check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Gradle version
+        run: gradle --version
+      - name: Compile project
+        run: |
+          echo "Compiling project with Gradle..."
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            GRADLE_CMD=./gradlew
+          else
+            GRADLE_CMD=gradle
+          fi
+          $GRADLE_CMD --no-daemon clean build -x check
+
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: gradle_compile
+    # services:
+    #   docker:
+    #     image: docker:20.10.16-dind
+    #     options: --privileged --tls=false
+    #     ports:
+    #       - 2375:2375
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+          docker save $DOCKER_IMAGE_NAME:$DOCKER_TAG > image.tar
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tar
+          path: image.tar
+
+  helm_e2e_run:
+    name: Cloud test with Helm on EKS
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    # Manual trigger is not natively supported in GitHub Actions for push events.
+    # To run this job manually, use workflow_dispatch or separate workflow.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --name "${{ secrets.EKS_CLUSTER_NAME }}" --region "${{ secrets.AWS_DEFAULT_REGION }}"
+      - name: Show Kubernetes context
+        run: |
+          kubectl config current-context
+          kubectl get ns || true
+      - name: Helm upgrade/install
+        run: |
+          echo "Running Helm upgrade --install for release '${HELM_RELEASE}' in namespace '${K8S_NAMESPACE}' using chart '${HELM_CHART_PATH}'..."
+          helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" --namespace "${K8S_NAMESPACE}"
+      - name: Verify rollout
+        run: |
+          TIMEOUT="${HELM_WAIT_TIMEOUT:-300s}"
+          kubectl rollout status job/"${HELM_RELEASE}" -n "${K8S_NAMESPACE}" --timeout="${TIMEOUT}" || true
+
+  push_latest:
+    name: Push as 'latest' (main branch only)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.CI_REGISTRY_USER }}
+          password: ${{ secrets.CI_REGISTRY_PASSWORD }}
+      - name: Load and tag Docker image
+        run: |
+          docker load < image.tar
+          docker tag $DOCKER_IMAGE_NAME:$DOCKER_TAG $DOCKER_IMAGE_NAME:latest
+      - name: Push Docker image as latest
+        run: docker push $DOCKER_IMAGE_NAME:latest
+
+  push_branch_sha:
+    name: Push as '{sha}' (non-main branches)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.CI_REGISTRY_USER }}
+          password: ${{ secrets.CI_REGISTRY_PASSWORD }}
+      - name: Load Docker image
+        run: docker load < image.tar
+      - name: Push Docker image with commit SHA tag
+        run: docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
