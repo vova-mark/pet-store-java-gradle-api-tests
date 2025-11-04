@@ -1,0 +1,90 @@
+# .github/workflows/main.yml
+# Conversion of .gitlab-ci.yml to GitHub Actions
+# Platform-specific notes and limitations are included as comments.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+env:
+  DOCKER_REGISTRY: registry.git.epam.com
+  DOCKER_IMAGE_NAME: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+  DOCKER_TAG: ${{ github.sha }}
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+
+jobs:
+
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+      - name: Save Docker image as artifact
+        run: |
+          docker save $DOCKER_IMAGE_NAME:$DOCKER_TAG > image.tar
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tar
+          path: image.tar
+
+  push_latest:
+    name: Push Docker image as 'latest' (main branch)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        run: echo "${{ secrets.CI_REGISTRY_PASSWORD }}" | docker login $DOCKER_REGISTRY -u "${{ secrets.CI_REGISTRY_USER }}" --password-stdin
+      - name: Load Docker image
+        run: docker load < image.tar
+      - name: Tag and push as latest
+        run: |
+          docker tag $DOCKER_IMAGE_NAME:$DOCKER_TAG $DOCKER_IMAGE_NAME:latest
+          docker push $DOCKER_IMAGE_NAME:latest
+
+  push_branch_sha:
+    name: Push Docker image as '{sha}' (non-main branches)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker registry
+        run: echo "${{ secrets.CI_REGISTRY_PASSWORD }}" | docker login $DOCKER_REGISTRY -u "${{ secrets.CI_REGISTRY_USER }}" --password-stdin
+      - name: Load Docker image
+        run: docker load < image.tar
+      - name: Push Docker image
+        run: docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
+
+# Platform-specific notes:
+# - All sensitive variables (Docker registry credentials) must be stored in GitHub Secrets.
+# - Artifacts are used to pass the Docker image tarball between jobs.
+# - The job dependencies and needs are mapped to preserve the original pipeline order.
+# - Some shell syntax and environment variable references are adapted for GitHub Actions.
+# - The Docker-in-Docker setup is handled by default on ubuntu-latest runners.
+# - No direct equivalent for GitLab's 'rules'; conditional job execution is handled via 'if:'.
