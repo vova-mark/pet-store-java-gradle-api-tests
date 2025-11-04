@@ -16,8 +16,8 @@ env:
   DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   # GitHub does not provide CI_COMMIT_SHORT_SHA, but github.sha is available (full SHA)
   DOCKER_TAG: ${{ github.sha }}
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_DRIVER: overlay2
+  # DOCKER_HOST: tcp://docker:2375
+  # DOCKER_DRIVER: overlay2
 
 jobs:
   build:
