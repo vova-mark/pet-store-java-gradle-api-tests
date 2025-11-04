@@ -90,7 +90,7 @@ jobs:
     name: Helm E2E Run
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push'
+    # if: github.event_name == 'push'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
