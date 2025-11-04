@@ -16,7 +16,7 @@ env:
   DOCKER_IMAGE_NAME: registry.git.epam.com/epmc-tedu/ai_playground/pet-store-java-gradle-api-tests
   DOCKER_TAG: ${{ github.sha }}
   DOCKER_DRIVER: overlay2
-  HELM_RELEASE: api-tests-${{ github.sha }}
+  HELM_RELEASE: ${{ github.sha }}
   K8S_NAMESPACE: default
   HELM_CHART_PATH: .kube/pet-store
 
